@@ -46,8 +46,7 @@ func checkLogin(w http.ResponseWriter, rq *http.Request) *my.User {
 func notemp() *template.Template {
 	tmp, _ := template.New("index").Parse("NO PAGE.")
 		return tmp
-	}
-
+}
 
 //get target Temlate
 func page(fname string) *template.Template {
@@ -141,7 +140,127 @@ func Post(w http.ResponseWriter, rq *http.Request) {
 }
 
 //home handler
-// func home()
+func home(w http.ResponseWriter, rq *http.Request) {
+	user := checkLogin(w, rq)
+    
+	db, _ := gorm.Open(dbDriver, dbName)
+	defer db.Close()
+
+	if rq.Method == "POST" {
+		switch rq.PostFormValue("form") {
+		case "post":
+			ad := rq.PostFormValue("address")
+			ad := strings.TrimSpace(ad)
+			if strings.HasPrefix(ad, "https://youtu.be/") {
+				ad = strings.TrimPrefix(ad, "https://youtu.be/")
+			}
+
+			pt := my.Post{
+				UserId: int(user.Model.ID),
+				Address: ad,
+				Message: rq.PostFormValue("message"),
+			}
+			db.Create(&pt)
+		case "group":
+			gp := my.Group{
+				UserId: int(user.Model.ID),
+				Name: rq.PostFormValue("name"),
+				Message: rq.PostFormValue("message"),
+			}
+			db.Create(&gp)
+		}
+		
+	}
+	var pts []my.Post
+	var gps []my.Group
+
+	db.Where("user_id=?", user.ID).Order("created_at desc").Limit(10).Find(&pts)
+	db.Where("user_id=?", user.ID).Order("created_at desc").Limit(10).Find(&gps)
+		
+
+	itm := struct {
+		Title string
+		Message string
+		Name string
+		Account string
+		Plist my.Post
+		Glist []my.Group
+	}{
+		Title: "Home",
+		Message: "User account=\"" + user.Account + "\".",
+		Name: user.Name,
+		Account: user.Account,
+		Plist: pts,
+		Glist: gps,
+	}
+	er := page("home").Execute(w, itm)
+	if er != nil {
+		log.Fatal(er)
+	}
+}
+
+
+//group handler
+func group(w http.ResponseWriter, rq *http.Request) {
+	user := checkLogin(w, rq)
+    
+	gid := rq.FormValue("gid")
+	db, _ := gorm.Open(dbDriver, dbName)
+	defer db.Close()
+
+	if rq.Method == "POST" {
+		switch rq.PostFormValue("form") {
+		case "post":
+			ad := rq.PostFormValue("address")
+			ad := strings.TrimSpace(ad)
+			if strings.HasPrefix(ad, "https://youtu.be/") {
+				ad = strings.TrimPrefix(ad, "https://youtu.be/")
+			}
+
+			gid, _ := strconv.Atoi(gid)
+			pt := my.Post{
+				UserId: int(user.Model.ID),
+				Address: ad,
+				Message: rq.PostFormValue("message"),
+			}
+			db.Create(&pt)
+		}
+		
+	}
+	var grp my.Group
+	var pts []my.Post
+
+	db.Where("id=?", gid).First(&grp)
+	db.Order("created_at desc").Model(&grp).Related(&pts)
+		
+
+	itm := struct {
+		Title string
+		Message string
+		Name string
+		Account string
+		Group my.Group
+		Plist []my.Post
+	}{
+		Title: "Group",
+		Message: "Group id=" + gid,
+		Name: user.Name,
+		Account: user.Account,
+		Group: grp,
+		Plist: pts,
+	}
+	er := page("group").Execute(w, itm)
+	if er != nil {
+		log.Fatal(er)
+	}
+}
+
+//login handler
+
+
+//logout handler
+
+
 
 
 
