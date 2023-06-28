@@ -10,6 +10,7 @@ import (
 
 	"github.com/daan0220/youtube-go/my"
 	"github.com/gorilla/sessions"
+	"golang.org/x/tools/go/analysis/passes/nilfunc"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -256,15 +257,71 @@ func group(w http.ResponseWriter, rq *http.Request) {
 }
 
 //login handler
+func login(w http.ResponseWriter, rq *http.Request) {
+	item := struct {
+		Title string
+		Message string
+		Account string
+	}{
+		Title: "Login",
+		Message: "type your account & password:",
+		Account: "",
+	}
 
+	if rq.Method == "GET" {
+		er := page("login").Execute(w, item)
+		if er != nil {
+			log.Fatal(er)
+		}
+		return
+	}
+	if rq.Method == "POST" {
+		db, _ := gorm.Open(dbDriver, dbName)
+		defer db,Close()
+
+		usr := rq.PostFormValue("account")
+		pass := rq.PostFormValue("pass")
+		item.Account = usr
+
+		//check account and password
+		var re int 
+		var user my.User
+
+		db.Where("account = ? and password = ?", usr, pass).
+		Find(&user).Count(&re)
+
+		if re <= 0 {
+			item.Message = "Wrong account or password."
+			page("login").Execute(w, item)
+			return
+		}
+		//logined
+		ses, _ := cs.Get(rq, sesName)
+		ses.Values["login"] = usr
+		ses.Values["account"] = usr
+		ses.Values["name"] = usr.Name
+		ses.Save(rq, w)
+		http.Redirect(w, rq, "/", 302)
+
+		er := page("login").Execute(w, item)
+		if er != nil {
+			log.Fatal(er)
+		}
+	}
+}
 
 //logout handler
-
-
-
-
+func logout(w http.ResponseWriter, rq *http.Request) {
+	ses, _ := cs.Get(rq, sesName)
+	ses.Values["login"] = nil
+	ses.Values["account"] = nil
+	ses.Save(rq, w)
+	http.Redirect(w, rq, "/login", 302)
+}
 
 // main program
 func main() {
+
+	
 	my.Migrate()
 }
