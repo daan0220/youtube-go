@@ -3,14 +3,12 @@ package main
 import (
 	"log"
 	"net/http"
-	"os/user"
 	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/daan0220/youtube-go/my"
 	"github.com/gorilla/sessions"
-	"golang.org/x/tools/go/analysis/passes/nilfunc"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -30,7 +28,7 @@ func checkLogin(w http.ResponseWriter, rq *http.Request) *my.User {
 	if ses.Values["login"] == nil || !ses.Values["login"].(bool) {
 		http.Redirect(w, rq, "/login", 302)
 	}
-	ac :=""
+	ac := ""
 	if ses.Values["account"] != nil {
 		ac = ses.Values["account"].(string)
 	}
@@ -46,14 +44,14 @@ func checkLogin(w http.ResponseWriter, rq *http.Request) *my.User {
 //Template for no-template.
 func notemp() *template.Template {
 	tmp, _ := template.New("index").Parse("NO PAGE.")
-		return tmp
+	return tmp
 }
 
 //get target Temlate
 func page(fname string) *template.Template {
 	tmps, _ := template.ParseFiles("templates/"+fname+".html",
-			"templates/head.html", "templates/foot.html")
-			return tmps
+		"templates/head.html", "templates/foot.html")
+	return tmps
 }
 func createTemplate() *template.Template {
 	tmp := template.New("index")
@@ -62,7 +60,7 @@ func createTemplate() *template.Template {
 }
 
 //top page handler.
-func index(w http.ResponseWriter, rq * http.Request) {
+func index(w http.ResponseWriter, rq *http.Request) {
 	user := checkLogin(w, rq)
 
 	db, _ := gorm.Open(dbDriver, dbName)
@@ -74,19 +72,19 @@ func index(w http.ResponseWriter, rq * http.Request) {
 	db.Order("created_at desc").Limit(10).Find(&gl)
 
 	item := struct {
-		Title string
+		Title   string
 		Message string
-		Name string
+		Name    string
 		Account string
-		Plist []my.Post
-		Glist []my.Group
+		Plist   []my.Post
+		Glist   []my.Group
 	}{
-		Title: "Index",
+		Title:   "Index",
 		Message: "This is Top page",
-		Name: user.Name,
+		Name:    user.Name,
 		Account: user.Account,
-		Plist: pl,
-		Glist: gl,
+		Plist:   pl,
+		Glist:   gl,
 	}
 	er := page("index").Execute(w, item)
 	if er != nil {
@@ -94,9 +92,9 @@ func index(w http.ResponseWriter, rq * http.Request) {
 	}
 }
 
-func Post(w http.ResponseWriter, rq *http.Request) {
+func post(w http.ResponseWriter, rq *http.Request) {
 	user := checkLogin(w, rq)
-    
+
 	pid := rq.FormValue("pid")
 	db, _ := gorm.Open(dbDriver, dbName)
 	defer db.Close()
@@ -105,8 +103,8 @@ func Post(w http.ResponseWriter, rq *http.Request) {
 		msg := rq.PostFormValue("message")
 		pId, _ := strconv.Atoi(pid)
 		cmt := my.Comment{
-			UserId: int(user.Model.ID),
-			PostId: pId,
+			UserId:  int(user.Model.ID),
+			PostId:  pId,
 			Message: msg,
 		}
 		db.Create(&cmt)
@@ -115,24 +113,23 @@ func Post(w http.ResponseWriter, rq *http.Request) {
 	var cmts []my.CommentJoin
 
 	db.Where("id = ?", pid).First(&pst)
-	db.Table("comments").Select("comments.*, users.id, users.name")
-	.Joins("join users on users.id =comments.user_id")
-	.Where("comments.post_id = ?", pid).Order("created_at desc").Find(&cmts)
+
+	db.Table("comments").Select("comments.*, users.id, users.name").Joins("join users on users.id = comments.user_id").Where("comments.post_id = ?", pid).Order("created_at desc").Find(&cmts)
 
 	item := struct {
-		Title string
+		Title   string
 		Message string
-		Name string
+		Name    string
 		Account string
-		Post my.Post
-		Clist []my.CommentJoin
+		Post    my.Post
+		Clist   []my.CommentJoin
 	}{
-		Title: "Post",
+		Title:   "Post",
 		Message: "Post id=" + pid,
-		Name: user.Name,
+		Name:    user.Name,
 		Account: user.Account,
-		Post: pst,
-		Clist: cmts,
+		Post:    pst,
+		Clist:   cmts,
 	}
 	er := page("post").Execute(w, item)
 	if er != nil {
@@ -143,7 +140,7 @@ func Post(w http.ResponseWriter, rq *http.Request) {
 //home handler
 func home(w http.ResponseWriter, rq *http.Request) {
 	user := checkLogin(w, rq)
-    
+
 	db, _ := gorm.Open(dbDriver, dbName)
 	defer db.Close()
 
@@ -151,48 +148,47 @@ func home(w http.ResponseWriter, rq *http.Request) {
 		switch rq.PostFormValue("form") {
 		case "post":
 			ad := rq.PostFormValue("address")
-			ad := strings.TrimSpace(ad)
+			ad = strings.TrimSpace(ad)
 			if strings.HasPrefix(ad, "https://youtu.be/") {
 				ad = strings.TrimPrefix(ad, "https://youtu.be/")
 			}
 
 			pt := my.Post{
-				UserId: int(user.Model.ID),
+				UserId:  int(user.Model.ID),
 				Address: ad,
 				Message: rq.PostFormValue("message"),
 			}
 			db.Create(&pt)
 		case "group":
 			gp := my.Group{
-				UserId: int(user.Model.ID),
-				Name: rq.PostFormValue("name"),
+				UserId:  int(user.Model.ID),
+				Name:    rq.PostFormValue("name"),
 				Message: rq.PostFormValue("message"),
 			}
 			db.Create(&gp)
 		}
-		
+
 	}
 	var pts []my.Post
 	var gps []my.Group
 
 	db.Where("user_id=?", user.ID).Order("created_at desc").Limit(10).Find(&pts)
 	db.Where("user_id=?", user.ID).Order("created_at desc").Limit(10).Find(&gps)
-		
 
 	itm := struct {
-		Title string
+		Title   string
 		Message string
-		Name string
+		Name    string
 		Account string
-		Plist my.Post
-		Glist []my.Group
+		Plist   []my.Post
+		Glist   []my.Group
 	}{
-		Title: "Home",
+		Title:   "Home",
 		Message: "User account=\"" + user.Account + "\".",
-		Name: user.Name,
+		Name:    user.Name,
 		Account: user.Account,
-		Plist: pts,
-		Glist: gps,
+		Plist:   pts,
+		Glist:   gps,
 	}
 	er := page("home").Execute(w, itm)
 	if er != nil {
@@ -200,11 +196,10 @@ func home(w http.ResponseWriter, rq *http.Request) {
 	}
 }
 
-
 //group handler
 func group(w http.ResponseWriter, rq *http.Request) {
 	user := checkLogin(w, rq)
-    
+
 	gid := rq.FormValue("gid")
 	db, _ := gorm.Open(dbDriver, dbName)
 	defer db.Close()
@@ -213,42 +208,42 @@ func group(w http.ResponseWriter, rq *http.Request) {
 		switch rq.PostFormValue("form") {
 		case "post":
 			ad := rq.PostFormValue("address")
-			ad := strings.TrimSpace(ad)
+			ad = strings.TrimSpace(ad)
 			if strings.HasPrefix(ad, "https://youtu.be/") {
 				ad = strings.TrimPrefix(ad, "https://youtu.be/")
 			}
 
-			gid, _ := strconv.Atoi(gid)
+			gId, _ := strconv.Atoi(gid)
 			pt := my.Post{
-				UserId: int(user.Model.ID),
+				UserId:  int(user.Model.ID),
 				Address: ad,
 				Message: rq.PostFormValue("message"),
+				GroupId: gId,
 			}
 			db.Create(&pt)
 		}
-		
+
 	}
 	var grp my.Group
 	var pts []my.Post
 
 	db.Where("id=?", gid).First(&grp)
 	db.Order("created_at desc").Model(&grp).Related(&pts)
-		
 
 	itm := struct {
-		Title string
+		Title   string
 		Message string
-		Name string
+		Name    string
 		Account string
-		Group my.Group
-		Plist []my.Post
+		Group   my.Group
+		Plist   []my.Post
 	}{
-		Title: "Group",
+		Title:   "Group",
 		Message: "Group id=" + gid,
-		Name: user.Name,
+		Name:    user.Name,
 		Account: user.Account,
-		Group: grp,
-		Plist: pts,
+		Group:   grp,
+		Plist:   pts,
 	}
 	er := page("group").Execute(w, itm)
 	if er != nil {
@@ -259,11 +254,11 @@ func group(w http.ResponseWriter, rq *http.Request) {
 //login handler
 func login(w http.ResponseWriter, rq *http.Request) {
 	item := struct {
-		Title string
+		Title   string
 		Message string
 		Account string
 	}{
-		Title: "Login",
+		Title:   "Login",
 		Message: "type your account & password:",
 		Account: "",
 	}
@@ -277,18 +272,18 @@ func login(w http.ResponseWriter, rq *http.Request) {
 	}
 	if rq.Method == "POST" {
 		db, _ := gorm.Open(dbDriver, dbName)
-		defer db,Close()
+		defer db.Close()
 
 		usr := rq.PostFormValue("account")
 		pass := rq.PostFormValue("pass")
 		item.Account = usr
 
 		//check account and password
-		var re int 
+		var re int
 		var user my.User
 
 		db.Where("account = ? and password = ?", usr, pass).
-		Find(&user).Count(&re)
+			Find(&user).Count(&re)
 
 		if re <= 0 {
 			item.Message = "Wrong account or password."
@@ -299,7 +294,7 @@ func login(w http.ResponseWriter, rq *http.Request) {
 		ses, _ := cs.Get(rq, sesName)
 		ses.Values["login"] = usr
 		ses.Values["account"] = usr
-		ses.Values["name"] = usr.Name
+		ses.Values["name"] = user.Name
 		ses.Save(rq, w)
 		http.Redirect(w, rq, "/", 302)
 
@@ -321,7 +316,30 @@ func logout(w http.ResponseWriter, rq *http.Request) {
 
 // main program
 func main() {
+	//index handling.
+	http.HandleFunc("/", func(w http.ResponseWriter, rq *http.Request) {
+		index(w, rq)
+	})
+	//home handling.
+	http.HandleFunc("/home", func(w http.ResponseWriter, rq *http.Request) {
+		home(w, rq)
+	})
+	//post handling.
+	http.HandleFunc("post/", func(w http.ResponseWriter, rq *http.Request) {
+		post(w, rq)
+	})
+	//group handling.
+	http.HandleFunc("/group", func(w http.ResponseWriter, rq *http.Request) {
+		group(w, rq)
+	})
+	//login handling.
+	http.HandleFunc("/login", func(w http.ResponseWriter, rq *http.Request) {
+		login(w, rq)
+	})
+	//logout handling.
+	http.HandleFunc("/logout", func(w http.ResponseWriter, rq *http.Request) {
+		logout(w, rq)
+	})
 
-	
-	my.Migrate()
+	http.ListenAndServe("", nil)
 }
